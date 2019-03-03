@@ -1,0 +1,7 @@
+:
+
+pkill clock2
+
+for c in {8001..8003}
+do go run ./clock2.go $c &
+done
