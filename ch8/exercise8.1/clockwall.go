@@ -1,47 +1,51 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"os"
-	"strconv"
+	"strings"
 	"time"
 )
 
 var nconnections int = 0
 
+type connection struct {
+	name               string
+	connection_string  string
+	network_connection net.Conn
+}
+
 func main() { // client to multiple servers.
-	var ports []int
+	var conns []connection
 	// read port numbers from the command line.
 	for _, a := range os.Args[1:] {
-		v, err := strconv.Atoi(a)
-		if err != nil {
-			log.Fatal(err)
-		}
-		ports = append(ports, v)
+		fields := strings.Split(a, "=")
+		conns = append(conns, connection{name: fields[0], connection_string: fields[1]})
 	}
-	for _, port := range ports {
-		fmt.Printf("connecting to localhost %d\n", port)
-		conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
-		fmt.Printf("%v\n", conn)
+	// make all the connection before starting to read form them
+	for i, con := range conns {
+		fmt.Printf("connecting to %s\n", con.connection_string)
+		conn, err := net.Dial("tcp", con.connection_string)
 		if err != nil {
-			fmt.Printf("%v\n", err)
 			log.Fatal(err)
-			continue
 		}
-		go handler(conn)
+		conns[i].network_connection = conn
+	}
+	for _, con := range conns {
+		go handler(con.name, con.network_connection)
 	}
 	for {
 		time.Sleep(time.Minute)
 	}
 }
 
-func handler(conn net.Conn) {
-	fmt.Println("in handler")
+func handler(name string, conn net.Conn) {
 	defer conn.Close()
-	if _, err := io.Copy(os.Stdout, conn); err != nil {
-		log.Print(err)
+	scanner := bufio.NewScanner(conn)
+	for scanner.Scan() {
+		fmt.Printf("%s %s\n", name, scanner.Text())
 	}
 }
